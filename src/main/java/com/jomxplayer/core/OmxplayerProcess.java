@@ -1,5 +1,7 @@
 package com.jomxplayer.core;
 
+import com.sun.tools.javac.util.Log;
+
 import java.io.IOException;
 
 /**
@@ -29,6 +31,7 @@ public class OmxplayerProcess {
     private AspectMode aspectMode;
     private int[] window;
 
+    private OmxplayerMonitorThread monitorThread;
     private Process process;
 
     /**
@@ -41,6 +44,7 @@ public class OmxplayerProcess {
         Runtime.getRuntime().addShutdownHook(new Thread(){
             @Override
             public void run() {
+                log("Shutdown hook called. Attempting to stop Omxplayer Process");
                 OmxplayerProcess.this.stop();
             }
         });
@@ -83,29 +87,10 @@ public class OmxplayerProcess {
      * Create a Java process and start playing the video
      * @return this instance of Omxplayer
      */
-    public OmxplayerProcess play() {
-        if(process == null){
-            String command = "omxplayer";
-            if(mute){
-                command += " -n -1";
-            }
-            if(window != null){
-                command += String.format(" --win '%d %d %d %d'", window[0], window[1], window[2], window[3]);
-            }
-            if(aspectMode != null){
-                command += " --aspect-mode " + aspectMode;
-            }
-
-            command = command + " " + filePath;
-
-            ProcessBuilder pb = new ProcessBuilder("bash", "-c", command);
-
-            try{
-                process = pb.start();
-            }
-            catch (IOException e){
-                e.printStackTrace();
-            }
+    public synchronized OmxplayerProcess play() {
+        if(process == null && monitorThread == null){
+            monitorThread = new OmxplayerMonitorThread();
+            monitorThread.start();
         }
         return this;
     }
@@ -113,7 +98,8 @@ public class OmxplayerProcess {
     /**
      * Stop the Java process associated with the video
      */
-    public void stop() {
+    public synchronized void stop() {
+        log("stop() called. Writing 'q' to output stream");
         if(process != null){
             try{
                 process.getOutputStream().write('q');
@@ -122,6 +108,51 @@ public class OmxplayerProcess {
             }
             catch (IOException e){
                 e.printStackTrace();
+            }
+        }
+    }
+
+    private void log(String msg){
+        System.out.println(msg);
+    }
+
+    /**
+     * A thread used to monitor the Java Process for Omxplayer
+     */
+    private class OmxplayerMonitorThread extends Thread {
+
+        @Override
+        public void run() {
+            super.run();
+            log("OmxplayerMonitorThread run() called. Attempting to build process");
+            if(process == null){
+                String command = "omxplayer";
+                if(mute){
+                    command += " -n -1";
+                }
+                if(window != null){
+                    command += String.format(" --win '%d %d %d %d'", window[0], window[1], window[2], window[3]);
+                }
+                if(aspectMode != null){
+                    command += " --aspect-mode " + aspectMode;
+                }
+
+                command = command + " " + filePath;
+                log(command);
+                ProcessBuilder pb = new ProcessBuilder("bash", "-c", command);
+
+                try{
+                    process = pb.start();
+                    log("OmxPlayerProcess started. Waiting for process to finish");
+                    process.waitFor();
+                    log("OmxPlayerProcess finished");
+                }
+                catch (IOException e){
+                    e.printStackTrace();
+                }
+                catch (InterruptedException e) {
+                    e.printStackTrace();
+                }
             }
         }
     }
