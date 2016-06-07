@@ -1,7 +1,5 @@
 package com.jomxplayer.core;
 
-import com.sun.tools.javac.util.Log;
-
 import java.io.IOException;
 
 /**

@@ -9,7 +9,7 @@ public class Sample {
 
     public static void main(String[] args) {
 
-        String videoPath = "~/test.mp4";
+        String videoPath = "~/videos/test.MP4";
 
         int x1 = 0;
         int y1 = 0;
